@@ -1,0 +1,12 @@
+api_token: ''
+url: ''
+categories:
+  - category: 5
+    expiry: 1w
+  - category: 6
+    expiry: 2w
+feeds:
+  - feed: 1
+    expiry: 1w
+  - feed: 2
+    expiry: 3d
