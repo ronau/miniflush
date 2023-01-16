@@ -21,7 +21,7 @@ config = dict()     # The config read from config file
 # HTTP request stuff
 base_url = ""
 headers = dict()
-base_params = {'direction':'asc', 'order':'published_at', 'status':'unread'}
+base_params = {'direction':'asc', 'order':'published_at', 'status':'unread', 'limit': '50'}
 timeout = 30.0
 
 
@@ -97,20 +97,14 @@ def find_and_mark_expired_entries():
 def get_expired_category_entries(category, expiry):
 
     logging.debug(f"Get category entries: {category}, {expiry}")
-
     
     params = base_params | {'before': calculate_expiry_timestamp(expiry)}        # extend params with expiry timestamp for this request
     endpoint = f"{base_url}/v1/categories/{category}/entries"
+   
+    entries = request_entries(endpoint, params)
+    entry_ids = collect_entry_ids_from_entries(entries)
 
-    logging.debug(f"Calling {endpoint} with {params}")
-    """
-    response = requests.get(
-        endpoint,
-        headers,
-        params,
-        timeout
-    )
-    """
+    return entry_ids
 
 
 def calculate_expiry_timestamp(expiry):
@@ -122,7 +116,44 @@ def calculate_expiry_timestamp(expiry):
     expiry_ts_posix = int(expiry_ts.timestamp())
     logging.debug(f"{expiry} = {delta} seconds, now = {now_posix} ({now.isoformat(timespec='seconds')}), expiry_ts = {expiry_ts_posix} ({expiry_ts.isoformat(timespec='seconds')})")
     return str(expiry_ts_posix)
+
+
+def request_entries(endpoint, params):
+
+    logging.debug(f"Calling {endpoint} with {params}")
     
+    r = requests.get(
+        endpoint,
+        headers=headers,
+        params=params,
+        timeout=timeout
+    )
+
+    logging.debug(f"Response status code: {r.status_code}")
+    if r.status_code != 200:
+        raise RequestError(r)
+        return []
+
+    response = r.json()
+    logging.debug(f"Found {response['total']} entries in total. {len(response['entries'])} entries received.")
+    
+    return response['entries']
+
+
+def collect_entry_ids_from_entries(entries):
+
+    entry_ids = []
+
+    for entry in entries:
+        if "id" not in entry:
+            logging.error(f"Entry is missing an id: {entry}")
+        entry_ids.append(entry["id"])
+
+    logging.debug(f"Returning {len(entry_ids)} entry IDs: {entry_ids}")
+
+    return entry_ids
+
+
 
 
 if __name__ == "__main__":
